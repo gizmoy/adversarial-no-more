@@ -6,9 +6,9 @@ class MnistDataLoader(BaseDataLoader):
     """
     Mnist Data Loader
     """
-    def __init__(self, root, batch_size, shuffle=True, validation_split=0.0, num_workers=1, train=True):
-        self.root = root
-        self.dataset = Mnist(self.root, train=train)
+    def __init__(self, data_dir, batch_size, shuffle=True, validation_split=0.0, num_workers=1, training=True):
+        self.data_dir = data_dir
+        self.dataset = Mnist(root=self.data_dir, train=training)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
 
 
@@ -16,7 +16,7 @@ class Cifar10DataLoader(BaseDataLoader):
     """
     CIFAR-10 Data Loader
     """
-    def __init__(self, root, batch_size, shuffle=True, validation_split=0.0, num_workers=1, train=True):
-        self.root = root
-        self.dataset = Cifar10(self.root, train=train)
+    def __init__(self, data_dir, batch_size, shuffle=True, validation_split=0.0, num_workers=1, training=True):
+        self.data_dir = data_dir
+        self.dataset = Cifar10(root=self.data_dir, train=training)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
