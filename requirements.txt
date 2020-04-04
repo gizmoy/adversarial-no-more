@@ -1,5 +1,4 @@
 Augmentor
-cupy
 cvbase
 moviepy==1.0.0
 numpy
