@@ -1,11 +1,7 @@
-import os
 import argparse
-from datetime import datetime
-
-from PIL import Image
 import torch
 import torch.nn as nn
-import numpy as np
+from tqdm import tqdm
 
 import src.data_loader.data_loaders as module_data
 import src.model.loss as module_loss
@@ -14,18 +10,18 @@ import src.model.model as module_arch
 from src.utils.parse_config import ConfigParser
 
 
-def save_frame(frame, path):
-    frame = frame.astype(np.float32)
-    frame = np.moveaxis(frame, 0, 2)
-    frame = (np.clip(frame, 0, 1) * 255).astype(np.uint8)
-    Image.fromarray(frame).save(path)
-
-
 def main(config):
     logger = config.get_logger('test')
 
-    # setup data_loader instance
-    data_loader = config.init_obj('test_data_loader', module_data)
+    # setup data_loader instances
+    data_loader = getattr(module_data, config['test_data_loader']['type'])(
+        config['test_data_loader']['args']['data_dir'],
+        batch_size=512,
+        shuffle=False,
+        validation_split=0.0,
+        training=False,
+        num_workers=2
+    )
 
     # build model architecture
     model = config.init_obj('arch', module_arch)
@@ -50,56 +46,32 @@ def main(config):
     total_loss = 0.0
     total_metrics = torch.zeros(len(metric_fns))
 
-    experiment_name = config['name']
-    run_id = datetime.now().strftime(r'%m%d_%H%M%S')
-    save_folder = os.path.join(config['trainer']['save_dir'], 'test', experiment_name, run_id)
-
-    os.makedirs(save_folder)
-
     with torch.no_grad():
-        for batch_idx, batch_sample in enumerate(data_loader):
-            for k, v in batch_sample.items():
-                if '_path' not in k:
-                    batch_sample[k] = v.to(device)
+        for i, (data, target) in enumerate(tqdm(data_loader)):
+            data, target = data.to(device), target.to(device)
+            output = model(data)
 
-            output = model(batch_sample['frame0'], batch_sample['frame2'], batch_sample['frame4'])
-            target = (batch_sample['frame1'], batch_sample['frame2'], batch_sample['frame3'])
-            batch_size = batch_sample['frame0'].shape[0]
+            #
+            # save sample images, or do something with output here
+            #
 
-            frames1 = output[0].cpu().detach().numpy()
-            frames3 = output[2].cpu().detach().numpy()
-            true_frames0 = batch_sample['frame0'].cpu().detach().numpy()
-            true_frames1 = batch_sample['frame1'].cpu().detach().numpy()
-            true_frames2 = batch_sample['frame2'].cpu().detach().numpy()
-            true_frames3 = batch_sample['frame3'].cpu().detach().numpy()
-            true_frames4 = batch_sample['frame4'].cpu().detach().numpy()
+            # computing loss, metrics on test set
+            loss = loss_fn(output, target)
+            batch_size = data.shape[0]
+            total_loss += loss.item() * batch_size
+            for j, metric in enumerate(metric_fns):
+                total_metrics[j] += metric(output, target) * batch_size
 
-            for i in range(batch_size):
-                save_frame(frames1[i], os.path.join(save_folder, batch_sample['frame1_path'][i] + '.pred.png'))
-                save_frame(frames3[i], os.path.join(save_folder, batch_sample['frame3_path'][i] + '.pred.png'))
-                save_frame(true_frames0[i], os.path.join(save_folder, batch_sample['frame0_path'][i]))
-                save_frame(true_frames1[i], os.path.join(save_folder, batch_sample['frame1_path'][i]))
-                save_frame(true_frames2[i], os.path.join(save_folder, batch_sample['frame2_path'][i]))
-                save_frame(true_frames3[i], os.path.join(save_folder, batch_sample['frame3_path'][i]))
-                save_frame(true_frames4[i], os.path.join(save_folder, batch_sample['frame4_path'][i]))
-
-                # computing loss, metrics on test set
-                loss = loss_fn(output, target, **config['loss']['args'])
-                total_loss += loss.item()
-                for j, metric in enumerate(metric_fns):
-                    total_metrics[j] += metric(output[0], target[0])
-                    total_metrics[j] += metric(output[2], target[2])
-
-        n_samples = len(data_loader.sampler) * 2
-        log = {'loss': total_loss / n_samples}
-        log.update({
-            met.__name__: total_metrics[i].item() / n_samples for i, met in enumerate(metric_fns)
-        })
-        logger.info(log)
+    n_samples = len(data_loader.sampler)
+    log = {'loss': total_loss / n_samples}
+    log.update({
+        met.__name__: total_metrics[i].item() / n_samples for i, met in enumerate(metric_fns)
+    })
+    logger.info(log)
 
 
 if __name__ == '__main__':
-    args = argparse.ArgumentParser(description='Cartoon interpolation test')
+    args = argparse.ArgumentParser(description='PyTorch Template')
     args.add_argument('-c', '--config', default=None, type=str,
                       help='config file path (default: None)')
     args.add_argument('-r', '--resume', default=None, type=str,
