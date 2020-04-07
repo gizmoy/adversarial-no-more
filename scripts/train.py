@@ -7,8 +7,9 @@ import src.data_loader.data_loaders as module_data
 import src.model.loss as module_loss
 import src.model.metric as module_metric
 import src.model.model as module_arch
+import src.trainer as module_trainer
 from src.utils.parse_config import ConfigParser
-from src.trainer.trainer import Trainer
+from src.trainer.simple_trainer import Trainer
 
 
 # fix random seeds for reproducibility
@@ -23,8 +24,8 @@ def main(config):
     logger = config.get_logger('train')
 
     # setup data_loader instances
-    data_loader = config.init_obj('train_data_loader', module_data)
-    valid_data_loader = data_loader.split_validation()
+    train_data_loader = config.init_obj('train_data_loader', module_data)
+    valid_data_loader = train_data_loader.split_validation()
 
     # build model architecture, then print to console
     model = config.init_obj('arch', module_arch).cuda()
@@ -40,11 +41,14 @@ def main(config):
 
     lr_scheduler = config.init_obj('lr_scheduler', torch.optim.lr_scheduler, optimizer)
 
-    trainer = Trainer(model, criterion, metrics, optimizer,
-                      config=config,
-                      data_loader=data_loader,
-                      valid_data_loader=valid_data_loader,
-                      lr_scheduler=lr_scheduler)
+    trainer_class = getattr(module_trainer, config['trainer']['type'])
+    trainer = trainer_class(model, criterion, metrics, optimizer,
+                            config=config,
+                            train_data_loader=train_data_loader,
+                            valid_data_loader=valid_data_loader,
+                            lr_scheduler=lr_scheduler, **config['trainer']['args'])
+
+
 
     trainer.train()
 

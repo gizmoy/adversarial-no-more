@@ -1,4 +1,5 @@
 Augmentor
+git+git://github.com/tensorflow/cleverhans.git#egg=cleverhans
 cvbase
 moviepy==1.0.0
 numpy
