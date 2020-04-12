@@ -14,6 +14,9 @@ class Mnist(data.Dataset):
                 torchvision.transforms.Normalize((0.1307,), (0.3081,))
              ]))
 
+        # add random noise as an extra class to predict
+        self.dataset.classes.append('10 - random noise')
+
     def __getitem__(self, idx):
         return self.dataset[idx]
 

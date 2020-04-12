@@ -1,6 +1,7 @@
 import numpy as np
 import torch
-from cleverhans.future.torch.attacks import fast_gradient_method, projected_gradient_descent
+from cleverhans.future.torch.attacks import fast_gradient_method, projected_gradient_descent, noise
+from src.data_loader.cutout import cutout
 from torchvision.utils import make_grid
 from src.trainer.base import BaseTrainer
 from src.utils.utils import inf_loop, MetricTracker
@@ -127,6 +128,9 @@ class AdversarialTrainer(BaseTrainer):
 
     def _generate_adversaries(self, clean_data, target):
         data = []
+        random_noise_data = []
+        random_noise_target = torch.Tensor(target.shape[0]).fill_(10).long().to(self.device)
+        random_noise_count = 0
 
         for group in self.data_groups:
             if group == 'clean':
@@ -137,9 +141,17 @@ class AdversarialTrainer(BaseTrainer):
             if group == 'fgsm':
                 fgsm_data = fast_gradient_method(self.model, clean_data, self.eps, np.inf)
                 data.append(fgsm_data)
+            if group == 'cutout':
+                cutout_data = cutout(clean_data).to(self.device)
+                data.append(cutout_data)
+            if group == 'random_noise':
+                random_noise = noise(clean_data, self.eps)
+                random_noise_data.append(random_noise)
+                random_noise_count += 1
 
+        data = data + random_noise_data
         data = torch.cat(tuple(data), 0)
-        target = torch.cat(tuple([target] * len(self.data_groups)), 0)
+        target = torch.cat(tuple([target] * (len(self.data_groups) - random_noise_count) + [random_noise_target] * random_noise_count), 0)
 
         return data, target
 
@@ -152,6 +164,10 @@ class AdversarialTrainer(BaseTrainer):
         for i, group in enumerate(self.data_groups):
             for met in self.metric_ftns:
                 bs = loader.batch_size
+
+                # the last batch may have size less than batch size
+                bs = min(bs, output.shape[0] // len(self.data_groups))
+
                 group_output = output[i * bs: (i + 1) * bs]
                 group_target = target[i * bs: (i + 1) * bs]
                 metrics.update(f'{group}__{met.__name__}', met(group_output, group_target))
