@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from cleverhans.future.torch.attacks import fast_gradient_method, projected_gradient_descent
 from src.data_loader.cutout import cutout
-from src.data_loader.random_noise import random_noise
+from src.data_loader.random_noise import random_noise as noise
 from torchvision.utils import make_grid
 from src.trainer.base import BaseTrainer
 from src.utils.utils import inf_loop, MetricTracker
@@ -146,7 +146,7 @@ class AdversarialTrainer(BaseTrainer):
                 cutout_data = cutout(clean_data).to(self.device)
                 data.append(cutout_data)
             if group == 'random_noise':
-                random_noise = random_noise(clean_data)
+                random_noise = noise(clean_data).to(self.device)
                 random_noise_data.append(random_noise)
                 random_noise_count += 1
 

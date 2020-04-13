@@ -13,5 +13,4 @@ def random_noise(clean_data):
 
   maximum = int(torch.max(clean_data))
   dims = tuple(clean_data.size())
-  torch.random.seed()
   return torch.FloatTensor(dims[0], dims[1], dims[2], dims[3]).uniform_(0, maximum)
