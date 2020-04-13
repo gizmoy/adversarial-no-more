@@ -23,13 +23,13 @@ def cutout(x, length = 10):
 
   index = 0
   for img in x:
-    cutouts[index, :, :, :] = __cutout(img, length = length).reshape(1, height, width, channel)
+    cutouts[index, :, :, :] = cutout_single_image(img, length = length).reshape(1, height, width, channel)
     index += 1
 
   return cutouts
 
 
-def __clip(num, minimum, maximum):
+def clip(num, minimum, maximum):
   if num <= minimum:
     return minimum
   elif num >= maximum:
@@ -38,32 +38,30 @@ def __clip(num, minimum, maximum):
     return num
 
 
-def __cutout(img, length = 10):
+def cutout_single_image(img, length = 10):
   '''
   Apply to a single image
 
   reference: https://github.com/uoguelph-mlrg/Cutout/blob/master/util/cutout.py
   '''
 
+  img_copy = img * 1 # copy by value instead of reference
+
   dims = img.shape
   height = dims[0]
   width = dims[1]
   channel = dims[2]
 
-  mask = torch.ones(height, width)
-  
   y = np.random.randint(height)
   x = np.random.randint(width)
 
-  y1 = __clip(y + length // 2, minimum = 0, maximum = height)
-  y2 = __clip(y - length // 2, minimum = 0, maximum = height)
-  x1 = __clip(x + length // 2, minimum = 0, maximum = width)
-  x2 = __clip(x - length // 2, minimum = 0, maximum = width)
+  y1 = clip(y + length // 2, minimum = 0, maximum = height)
+  y2 = clip(y - length // 2, minimum = 0, maximum = height)
+  x1 = clip(x + length // 2, minimum = 0, maximum = width)
+  x2 = clip(x - length // 2, minimum = 0, maximum = width)
 
-  mask[y1: y2, x1: x2] = 0
+  mask = torch.ones(y1 - y2, x1 - x2, channel) * int(torch.max(img))
 
-  mask = torch.stack([mask] * channel, dim = 2).to(img.device)
+  img_copy[y2: y1, x2: x1, :] = mask
 
-  img = img * mask
-
-  return img
+  return img_copy
