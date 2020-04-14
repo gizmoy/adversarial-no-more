@@ -3,6 +3,7 @@ import torch.nn.functional as F
 
 
 class MnistModel(nn.Module):
+    # added random noise as an extra class to predict
     def __init__(self, num_classes=10):
         super().__init__()
         self.conv1 = nn.Conv2d(1, 10, kernel_size=5)

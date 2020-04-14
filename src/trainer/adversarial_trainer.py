@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 from cleverhans.future.torch.attacks import fast_gradient_method, projected_gradient_descent
+from src.data_loader.cutout import cutout
+from src.data_loader.random_noise import random_noise as noise
 from torchvision.utils import make_grid
 from src.trainer.base import BaseTrainer
 from src.utils.utils import inf_loop, MetricTracker
@@ -125,21 +127,34 @@ class AdversarialTrainer(BaseTrainer):
             total = self.len_epoch
         return base.format(current, total, 100.0 * current / total)
 
-    def _generate_adversaries(self, clean_data, target):
+    def _generate_adversaries(self, clean_data, clean_target):
         data = []
+        target = []
 
         for group in self.data_groups:
             if group == 'clean':
                 data.append(clean_data)
+                target.append(clean_target)
             if group == 'pgd':
                 pgd_data = projected_gradient_descent(self.model, clean_data, self.eps, 0.01, 40, np.inf)
                 data.append(pgd_data)
+                target.append(clean_target)
             if group == 'fgsm':
                 fgsm_data = fast_gradient_method(self.model, clean_data, self.eps, np.inf)
                 data.append(fgsm_data)
+                target.append(clean_target)
+            if group == 'cutout':
+                cutout_data = cutout(clean_data).to(self.device)
+                data.append(cutout_data)
+                target.append(clean_target)
+            if group == 'random_noise':
+                random_noise = noise(clean_data).to(self.device)
+                data.append(random_noise)
+                random_target = torch.Tensor(clean_target.shape[0]).fill_(10).long().to(self.device)
+                target.append(random_target)
 
         data = torch.cat(tuple(data), 0)
-        target = torch.cat(tuple([target] * len(self.data_groups)), 0)
+        target = torch.cat(tuple(target), 0)
 
         return data, target
 
@@ -152,6 +167,10 @@ class AdversarialTrainer(BaseTrainer):
         for i, group in enumerate(self.data_groups):
             for met in self.metric_ftns:
                 bs = loader.batch_size
+
+                # the last batch may have size less than batch size
+                bs = min(bs, output.shape[0] // len(self.data_groups))
+
                 group_output = output[i * bs: (i + 1) * bs]
                 group_target = target[i * bs: (i + 1) * bs]
                 metrics.update(f'{group}__{met.__name__}', met(group_output, group_target))
