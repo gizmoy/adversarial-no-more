@@ -2,8 +2,9 @@
     "name": "Mnist_initial",
     "n_gpu": 1,
     "arch": {
-        "type": "MnistModel",
+        "type": "DeepMnistModel",
         "args": {
+            "add_random_noise": true,
             "num_classes": 10
         }
     },
@@ -37,7 +38,10 @@
         }
     },
     "loss": {
-        "type": "cross_entropy_loss"
+        "type": "proposed_loss",
+        "args": {
+            "beta": 0.5
+        }
     },
     "metrics": [
         "accuracy", "top_k_acc"
@@ -56,7 +60,9 @@
             "add_adversarial": true,
             "adversarial_methods": [
                 "fgsm",
-                "pgd"
+                "pgd",
+                "random_noise",
+                "cutout"
             ],
             "eps": 0.3
         },
