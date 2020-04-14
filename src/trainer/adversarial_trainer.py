@@ -13,12 +13,11 @@ class AdversarialTrainer(BaseTrainer):
     Trainer class
     """
     def __init__(self, model, criterion, metric_ftns, optimizer, config, train_data_loader, add_clean, add_adversarial,
-                 adversarial_methods, add_random_noise, eps=None, valid_data_loader=None, lr_scheduler=None, len_epoch=None):
+                 adversarial_methods, eps=None, valid_data_loader=None, lr_scheduler=None, len_epoch=None):
         super().__init__(model, criterion, metric_ftns, optimizer, config)
         self.add_clean = add_clean if adversarial_methods else True
         self.add_adversarial = add_adversarial if adversarial_methods else False
         self.adversarial_methods = adversarial_methods
-        self.add_random_noise = add_random_noise
         self.eps = eps
         self.data_groups = []
 
@@ -128,30 +127,34 @@ class AdversarialTrainer(BaseTrainer):
             total = self.len_epoch
         return base.format(current, total, 100.0 * current / total)
 
-    def _generate_adversaries(self, clean_data, target):
+    def _generate_adversaries(self, clean_data, clean_target):
         data = []
+        target = []
 
         for group in self.data_groups:
             if group == 'clean':
                 data.append(clean_data)
+                target.append(clean_target)
             if group == 'pgd':
                 pgd_data = projected_gradient_descent(self.model, clean_data, self.eps, 0.01, 40, np.inf)
                 data.append(pgd_data)
+                target.append(clean_target)
             if group == 'fgsm':
                 fgsm_data = fast_gradient_method(self.model, clean_data, self.eps, np.inf)
                 data.append(fgsm_data)
+                target.append(clean_target)
             if group == 'cutout':
                 cutout_data = cutout(clean_data).to(self.device)
                 data.append(cutout_data)
+                target.append(clean_target)
+            if group == 'random_noise':
+                random_noise = noise(clean_data).to(self.device)
+                data.append(random_noise)
+                random_target = torch.Tensor(clean_target.shape[0]).fill_(10).long().to(self.device)
+                target.append(random_target)
 
         data = torch.cat(tuple(data), 0)
-        target = torch.cat(tuple([target] * len(self.data_groups)), 0)
-
-        if self.add_random_noise:
-          random_noise_data = noise(clean_data).to(self.device)
-          data = torch.cat((data, random_noise_data), 0)
-          random_noise_target = torch.Tensor(random_noise_data.shape[0]).fill_(10).long().to(self.device)
-          target = torch.cat((target, random_noise_target), 0)
+        target = torch.cat(tuple(target), 0)
 
         return data, target
 

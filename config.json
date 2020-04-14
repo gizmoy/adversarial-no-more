@@ -58,7 +58,6 @@
                 "fgsm",
                 "pgd"
             ],
-            "add_random_noise": false,
             "eps": 0.3
         },
         "epochs": 100,
