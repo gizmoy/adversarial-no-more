@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 
@@ -18,3 +19,15 @@ def top_k_acc(output, target, k=3):
         for i in range(k):
             correct += torch.sum(pred[:, i] == target).item()
     return correct / len(target)
+
+
+def avg_earliest_incorrect(output, target, iters=10):
+    B = output.shape[0] // iters
+    pred = torch.argmax(output, dim=1)
+    earliest_incorrect = np.array([iters + 1] * B)
+    for i in reversed(range(iters)):
+        pred_ = pred[i * B: (i + 1) * B].cpu().numpy()
+        target_ = target[i * B: (i + 1) * B].cpu().numpy()
+        incorrect = np.argwhere(pred_ != target_)
+        earliest_incorrect[incorrect] = i + 1
+    return np.mean(earliest_incorrect)
