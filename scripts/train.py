@@ -1,5 +1,6 @@
 import argparse
 import collections
+import random
 import torch
 import numpy as np
 
@@ -13,7 +14,7 @@ from src.trainer.simple_trainer import Trainer
 
 
 # fix random seeds for reproducibility
-SEED = 123
+SEED = random.randint(0, 9999999999)
 torch.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
